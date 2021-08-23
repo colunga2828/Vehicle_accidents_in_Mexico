@@ -1,5 +1,5 @@
 #Set directory
-setwd("C:/Users/dsanchezc/Desktop/Semanas/Google capstone/conjunto_de_datos")
+setwd("C:/Users/Desktop/Semanas/Google capstone/conjunto_de_datos")
 
 #Load libraries
 library(tidyverse)
