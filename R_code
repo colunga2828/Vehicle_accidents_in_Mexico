@@ -1,0 +1,94 @@
+#Set directory
+setwd("C:/Users/dsanchezc/Desktop/Semanas/Google capstone/conjunto_de_datos")
+
+#Load libraries
+library(tidyverse)
+library(skimr)
+library(lubridate)
+library(janitor)
+
+#Make data frames
+Data2018 <- read.csv("atus_anual_2018.csv" , row.names = NULL)
+Data2019 <- read.csv("atus_anual_2019.csv" , row.names = NULL)
+Entidad <- read.csv("tc_entidad.csv",row.names = NULL)
+Municipio <- read.csv("tc_municipio.csv", row.names = NULL)
+Fecha <- read.csv("Fechas.csv", row.names = NULL)
+
+#The entity information as well as the municipality, are found in id in the annual information(2018,2019), we will proceed to change it, by the names using the join function
+
+#First check metadata inconsistencies of the data frames
+compare_df_cols(Data2018, Data2019, return = "mismatch")
+
+#Union all data frames
+Dataset <-bind_rows(Data2018,Data2019)
+
+#Remove columns that are not relevant 1
+Dataset <- Dataset %>% select(-c(ï..Id,ESTATUS,ID_MINUTO))
+Entidad <- Entidad %>% select(-c(ï..Id))
+
+#Change alias id to state name
+Dataset <- left_join(Dataset, Entidad, by = "ID_ENTIDAD")
+
+#Change metadata to make key municipio in dataset data frame
+Dataset <- mutate(Dataset,ID_ENTIDAD=as.character(ID_ENTIDAD),
+                   ID_MUNICIPIO=as.character(ID_MUNICIPIO))
+
+#Remove columns that are not relevant 
+Municipio <- Municipio %>% select(-c(ï..Id))
+
+#Change metadata to make the key Municipio in municipio data frame
+Municipio <- mutate(Municipio,ID_ENTIDAD=as.character(ID_ENTIDAD),
+                  ID_MUNICIPIO=as.character(ID_MUNICIPIO))
+
+#Make key Municipio in municipio data frame
+Municipio <- Municipio %>% 
+  mutate(Key_m = paste(ID_ENTIDAD,"-",ID_MUNICIPIO))
+
+#Remove columns that are not relevant part 2
+Municipio <- Municipio %>% select(-c(ID_ENTIDAD,ID_MUNICIPIO))
+
+#Change metadata to make the key municpio in Dataset data frame
+Dataset <- mutate(Dataset,ID_ENTIDAD=as.character(ID_ENTIDAD),
+                    ID_MUNICIPIO=as.character(ID_MUNICIPIO),YEAR=as.character(ANIO),MES=as.character(MES))
+
+#Make key municipio in dataset data frame
+Dataset <- Dataset %>% 
+  mutate(Key_m = paste(ID_ENTIDAD,"-",ID_MUNICIPIO))
+
+#Change alias id to municipio name
+Dataset <- left_join(Dataset, Municipio, by = "Key_m")
+
+#Make key fecha data frame fecha
+Fecha <- mutate(Fecha,Year=as.character(Year),Mes=as.character(Mes),Dia=as.character(Dia))
+
+Fecha <- Fecha %>% 
+  mutate(Key_f = paste(Year,"-",Mes,"-",Dia))
+
+Fecha <- select(Fecha,-c(ï..Id,Mes,Dia,Year))
+
+#Make key date key to dataset dataframe
+Dataset <- Dataset %>% mutate(ID_DIA=as.character(ID_DIA),ANIO= as.character(ANIO),MES=as.character(MES))
+
+Dataset <- Dataset %>% mutate(Key_f=paste(ANIO,"-",MES,"-",ID_DIA))
+
+#Change id time to date in dataset data frame
+Dataset <- left_join(Dataset,Fecha, by="Key_f")
+
+#Change fecha metadata to date in dataset data frame
+Dataset <- mutate(Dataset,Fecha=as.POSIXct(Fecha,format="%d/%m/%Y"))
+
+#Remove columns that are not relevant part 3
+Dataset <- Dataset %>% select(-c(ID_ENTIDAD,ID_MUNICIPIO,COBERTURA,Key_m,PEATHERIDO,NEHERIDO,CICLHERIDO,
+                                 PASAMUERTO,OTROMUERTO,OTROHERIDO,PASAHERIDO,PEATMUERTO,CICLMUERTO,
+                                 YEAR,NEMUERTO,Key_f,YEAR,ANIO,MES,ID_DIA))
+
+#Make pivot dataset
+Dataset2<- Dataset %>% 
+  pivot_longer(cols = c("AUTOMOVIL","CAMPASAJ","MICROBUS","PASCAMION",	
+                        "OMNIBUS","TRANVIA","CAMIONETA","CAMION",
+                        "TRACTOR","FERROCARRI","MOTOCICLET",	
+                        "BICICLETA","OTROVEHIC"))
+                 
+#Export dataset 
+write.table(Dataset2,file="Dataset_final2.txt",row.names = FALSE,quote = FALSE,sep ="\t" )               
+                 
